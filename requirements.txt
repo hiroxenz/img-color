@@ -1,2 +1,4 @@
-Pillow
-requests
+flask
+opencv-python-headless
+numpy
+gunicorn
