@@ -1,84 +1,45 @@
-import json
-import requests
-from io import BytesIO
-from PIL import Image
+from flask import Flask, request, jsonify
+import base64
+import cv2
+import numpy as np
 
-def rgb_to_hsv(r, g, b):
-    r /= 255
-    g /= 255
-    b /= 255
+app = Flask(__name__)
 
-    maxc = max(r, g, b)
-    minc = min(r, g, b)
-    diff = maxc - minc
+@app.route('/api/check', methods=['POST'])
+def check_image():
+    data = request.json
 
-    if diff == 0:
-        h = 0
-    elif maxc == r:
-        h = (g - b) / diff + (6 if g < b else 0)
-    elif maxc == g:
-        h = (b - r) / diff + 2
-    else:
-        h = (r - g) / diff + 4
-    h = (h / 6) * 255
+    if not data or "image" not in data:
+        return jsonify({"status": False, "msg": "Missing image field"}), 400
 
-    s = 0 if maxc == 0 else (diff / maxc) * 255
-    v = maxc * 255
-
-    return int(h), int(s), int(v)
-
-
-def handler(request):
     try:
-        query = request.get("query", {})
-        image_url = query.get("imageUrl")
+        # Decode Base64 → Image
+        img_data = base64.b64decode(data["image"])
+        img_arr = np.frombuffer(img_data, np.uint8)
+        img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
 
-        if not image_url:
-            return {
-                "statusCode": 400,
-                "body": json.dumps({"error": "imageUrl required"})
+        if img is None:
+            return jsonify({"status": False, "msg": "Invalid image"}), 400
+
+        # ---- ANALISA: cek warna background + warna text (contoh sederhana) ----
+        # ambil pixel tengah
+        h, w, _ = img.shape
+        mid_pixel = img[h//2, w//2].tolist()      # [B,G,R]
+
+        # asumsikan background warna dominan
+        avg_color = np.mean(img.reshape(-1, 3), axis=0).tolist()  # [B,G,R]
+
+        return jsonify({
+            "status": True,
+            "info": {
+                "middle_pixel_BGR": mid_pixel,
+                "average_color_BGR": avg_color
             }
-
-        # Download image
-        resp = requests.get(image_url)
-        img = Image.open(BytesIO(resp.content)).convert("RGB")
-
-        width, height = img.size
-        total_pixels = width * height
-        match_pixels = 0
-
-        low = (30, 120, 0)
-        high = (255, 255, 255)
-
-        pixels = img.load()
-
-        for y in range(height):
-            for x in range(width):
-                r, g, b = pixels[x, y]
-                h, s, v = rgb_to_hsv(r, g, b)
-
-                if (
-                    low[0] <= h <= high[0] and
-                    low[1] <= s <= high[1] and
-                    low[2] <= v <= high[2]
-                ):
-                    match_pixels += 1
-
-        percentage = match_pixels / total_pixels
-        valid = percentage > 0.02
-
-        return {
-            "statusCode": 200,
-            "body": json.dumps({
-                "valid": valid,
-                "matchedPixels": match_pixels,
-                "totalPixels": total_pixels,
-                "percentage": percentage
-            })
-        }
+        })
 
     except Exception as e:
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": str(e)})
-        }
+        return jsonify({"status": False, "msg": str(e)}), 500
+
+
+def handler(event, context):
+    return app(event, context)
