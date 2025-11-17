@@ -1,6 +1,6 @@
 import Jimp from "jimp";
 
-// Convert RGB → HSV (scaled 0-255 seperti OpenCV)
+// Convert RGB → HSV (skala 0–255 seperti OpenCV)
 function rgbToHsv(r, g, b) {
   r /= 255; g /= 255; b /= 255;
 
@@ -37,7 +37,7 @@ function rgbToHsv(r, g, b) {
 
 export default async function handler(req, res) {
   try {
-    const { imageUrl } = req.query;
+    const imageUrl = req.query.imageUrl;
 
     if (!imageUrl)
       return res.status(400).json({ error: "imageUrl is required" });
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
     let matchCount = 0;
     let totalPixels = img.bitmap.width * img.bitmap.height;
 
-    // HSV range (sama seperti Python kamu)
+    // HSV range yang sama seperti Python
     const low = { h: 30, s: 120, v: 0 };
     const high = { h: 255, s: 255, v: 255 };
 
@@ -67,11 +67,10 @@ export default async function handler(req, res) {
       }
     });
 
-    // Jika banyak pixel sesuai → valid
     const percentage = matchCount / totalPixels;
     const isValid = percentage > 0.02; // threshold 2%
 
-    res.status(200).json({
+    return res.status(200).json({
       valid: isValid,
       matchedPixels: matchCount,
       totalPixels,
@@ -79,6 +78,6 @@ export default async function handler(req, res) {
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
