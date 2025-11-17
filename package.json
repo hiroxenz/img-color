@@ -1,8 +1,7 @@
 {
-  "name": "image-check-api",
+  "name": "img-color",
   "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "jimp": "^0.22.10"
-  }
+  "main": "api/index.js",
+  "type": "commonjs",
+  "dependencies": {}
 }
