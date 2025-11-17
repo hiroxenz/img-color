@@ -1,9 +1,12 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/check.py", "use": "@vercel/python" }
-  ],
+  "functions": {
+    "api/check.py": {
+      "runtime": "python3.11",
+      "maxDuration": 10
+    }
+  },
   "routes": [
-    { "src": "/api/check", "dest": "api/check.py" }
+    { "src": "/api/check", "dest": "/api/check.py" }
   ]
 }
