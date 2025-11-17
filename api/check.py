@@ -1,45 +1,48 @@
 from flask import Flask, request, jsonify
-import base64
-import cv2
+import requests
+from io import BytesIO
+from PIL import Image
 import numpy as np
+import cv2
 
 app = Flask(__name__)
 
-@app.route('/api/check', methods=['POST'])
-def check_image():
-    data = request.json
-
-    if not data or "image" not in data:
-        return jsonify({"status": False, "msg": "Missing image field"}), 400
+@app.route("/api/check")
+def check():
+    image_url = request.args.get("image")
+    
+    if not image_url:
+        return jsonify({"error": "image parameter is required"}), 400
 
     try:
-        # Decode Base64 → Image
-        img_data = base64.b64decode(data["image"])
-        img_arr = np.frombuffer(img_data, np.uint8)
-        img = cv2.imdecode(img_arr, cv2.IMREAD_COLOR)
+        # download image
+        img_bytes = requests.get(image_url).content
+        img = Image.open(BytesIO(img_bytes)).convert("RGB")
+        img_np = np.array(img)
 
-        if img is None:
-            return jsonify({"status": False, "msg": "Invalid image"}), 400
+        # convert ke HSV
+        hsv = cv2.cvtColor(img_np, cv2.COLOR_RGB2HSV)
 
-        # ---- ANALISA: cek warna background + warna text (contoh sederhana) ----
-        # ambil pixel tengah
-        h, w, _ = img.shape
-        mid_pixel = img[h//2, w//2].tolist()      # [B,G,R]
+        low = np.array([30, 120, 0])
+        high = np.array([255, 255, 255])
+        mask = cv2.inRange(hsv, low, high)
 
-        # asumsikan background warna dominan
-        avg_color = np.mean(img.reshape(-1, 3), axis=0).tolist()  # [B,G,R]
+        match_count = int(np.sum(mask > 0))
+        total_pixels = mask.size
+        percentage = match_count / total_pixels
+        is_valid = percentage > 0.02  # 2%
 
         return jsonify({
-            "status": True,
-            "info": {
-                "middle_pixel_BGR": mid_pixel,
-                "average_color_BGR": avg_color
-            }
+            "valid": is_valid,
+            "matchedPixels": match_count,
+            "totalPixels": total_pixels,
+            "percentage": percentage
         })
 
     except Exception as e:
-        return jsonify({"status": False, "msg": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-def handler(event, context):
-    return app(event, context)
+# WSGI handler untuk Vercel
+def handler(request, context):
+    return app(request, context)
