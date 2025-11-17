@@ -1,4 +1,4 @@
 flask
-opencv-python-headless
-numpy
 gunicorn
+numpy
+opencv-python-headless==4.7.0.72
