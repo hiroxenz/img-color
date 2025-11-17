@@ -1,4 +1,5 @@
 flask
-gunicorn
+requests
+pillow
 numpy
-opencv-python-headless==4.7.0.72
+opencv-python-headless
